@@ -1,12 +1,12 @@
 {
-  "name": "practice_mermaid_architecture_beta",
+  "name": "aidlc-dashboard",
   "build": {
     "dockerfile": "Dockerfile",
     "context": ".."
   },
   "workspaceMount": "source=${localWorkspaceFolder},target=/work_dir,type=bind,consistency=cached",
   "workspaceFolder": "/work_dir",
-  "forwardPorts": [8510],
+  "forwardPorts": [8501],
   "postCreateCommand": "pip install -r requirements.txt",
   "customizations": {
     "vscode": {

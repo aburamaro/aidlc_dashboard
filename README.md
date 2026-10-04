@@ -38,6 +38,39 @@ AIDLC の実行結果は、`aidlc-state.md`、各 Phase 配下の成果物、`au
 - 画面ファイルに処理を詰め込まず、役割ごとにファイルを分離する
 - ファイル名・ディレクトリ名から処理内容が分かる命名にする
 
+## 配置と実行方法
+
+本ダッシュボードは、AIDLC で開発を進めているルートディレクトリ直下に `aidlc_dashboard/` を配置して利用する想定です。
+
+配置イメージ:
+
+```text
+<aidlc_project_root>/
+├── aidlc/
+├── core/
+└── aidlc_dashboard/
+    ├── app.py
+    ├── config.yml
+    ├── requirements.txt
+    ├── src/
+    └── ...
+```
+
+初回のみ、`aidlc_dashboard/` ディレクトリに移動して依存ライブラリをインストールします。
+
+```bash
+cd aidlc_dashboard
+pip install -r requirements.txt
+```
+
+ダッシュボードは以下のコマンドで起動します。
+
+```bash
+streamlit run app.py
+```
+
+起動後、Streamlit が表示するローカル URL をブラウザで開いて利用します。
+
 ## 想定する AIDLC データ構造
 
 ダッシュボードは、主に以下のような AIDLC intent 配下の情報を読み取る想定です。
@@ -93,11 +126,19 @@ Artifacts 画面では、以下のファイル形式をプレビュー対象と�
 
 人間が直接編集する設定ファイルは、プロジェクト直下の `config.yml` のみとします。
 
-複数の設定ファイルに分散させず、以下のような値を `config.yml` に集約する方針です。
+`config.yml` では、AIDLC の読み込み対象パスとダッシュボードの表示設定を管理します。
 
-- AIDLC のルートパス
-- 対象 space
-- 対象 intent
+読み込み対象パスは、AIDLC のルートディレクトリだけを指定してアプリ側で全てを推測するのではなく、画面や用途ごとに明示します。
+
+これにより、AIDLC のディレクトリ構成が変わった場合や、一部の画面だけ別のディレクトリを参照したい場合でも、`config.yml` の修正だけで対応できるようにします。
+
+`config.yml` で管理する主な値は以下です。
+
+- Dashboard で読み込む対象ディレクトリパス
+- Workflow を表示するために読み込む対象ディレクトリパス
+- Artifacts 一覧で読み込む対象ディレクトリパス
+- 最近の更新履歴として読み込む `audit/` ディレクトリパス
+- AIDLC リリースバージョンを取得する `core/tools/aidlc-version.ts` のファイルパス
 - 自動更新 ON / OFF
 - 更新間隔
 - 日時表示形式
@@ -111,145 +152,136 @@ Artifacts 画面では、以下のファイル形式をプレビュー対象と�
 
 ディレクトリ名・ファイル名は、処理内容が一目で分かる名前にします。
 
-特に、AIDLC のファイルから必要な情報を抜き出す処理は `parser` ではなく `extractor` と呼びます。
+たとえば、ファイルやディレクトリを読み込む処理は `file_readers/`、読み込んだ内容から AIDLC の表示対象データを抜き出す処理は `aidlc_data_extractors/`、画面表示用にデータを整える処理は `display_data_builders/` に配置します。
 
-理由は、今回の処理がファイル全体を文法的に解析するというより、`aidlc-state.md` や `audit/`、各 Phase 配下のファイルから、画面表示に必要な情報を抽出する用途に近いためです。
-
-| 名前 | 役割 |
-|---|---|
-| `reader` | ファイルやディレクトリを探して読み込む |
-| `extractor` | 読み込んだ内容から AIDLC の状態や成果物情報を抜き出す |
-| `model` | アプリ内で扱うデータの形を定義する |
-| `builder` | 画面表示用にデータを集計・整形する |
-| `previewer` | 成果物をプレビュー表示できる形にする |
-| `ui_part` | Streamlit 画面で再利用する表示部品を定義する |
+画面ファイルや UI 部品も、`dashboard_screen.py`、`phase_stage_accordion.py`、`artifact_detail_panel.py` のように、用途が分かる名前にします。
 
 ## ディレクトリ構成案
 
-現時点では設計案です。まだディレクトリやコードは作成しません。
+`src/` 配下に、Streamlit 画面、UI 部品、ファイル読み込み、データ抽出、表示用データ生成などの実装コードを配置します。
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
 | `app.py` | Streamlit アプリの起動入口。ページ設定、画面遷移、共通 CSS 読み込みを行う |
-| `config.yml` | 人間が編集する唯一の設定ファイル。AIDLC ルートパス、intent、自動更新、表示件数、テーマなどを管理する |
+| `config.yml` | 人間が編集する唯一の設定ファイル。読み込み対象ディレクトリパス、自動更新、表示件数、テーマなどを管理する |
 | `requirements.txt` | Python 依存ライブラリを定義する |
 | `README.md` | 起動方法、設定方法、ディレクトリ構成、利用方法を説明する |
 | `requirements/requirements.md` | UI 要件定義書を置く |
-| `aidlc_dashboard/__init__.py` | Python パッケージとして認識させるためのファイル |
+| `src/` | アプリ本体の実装コードを置くディレクトリ |
 
 ### screens
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/screens/` | Streamlit の各画面を置く |
-| `aidlc_dashboard/screens/dashboard_screen.py` | Dashboard 画面。全体進捗、現在 Stage、次 Stage、最近の更新を表示する |
-| `aidlc_dashboard/screens/workflow_screen.py` | Workflow 画面。Phase / Stage 詳細、ステータスフィルタ、アコーディオンを表示する |
-| `aidlc_dashboard/screens/artifacts_screen.py` | Artifacts 画面。成果物一覧、検索、フィルタ、プレビューを表示する |
-| `aidlc_dashboard/screens/settings_screen.py` | Settings 画面。ダッシュボード表示設定、自動更新設定、リセットを表示する |
+| `src/screens/` | Streamlit の各画面を置く |
+| `src/screens/dashboard_screen.py` | Dashboard 画面。全体進捗、現在 Stage、次 Stage、最近の更新を表示する |
+| `src/screens/workflow_screen.py` | Workflow 画面。Phase / Stage 詳細、ステータスフィルタ、アコーディオンを表示する |
+| `src/screens/artifacts_screen.py` | Artifacts 画面。成果物一覧、検索、フィルタ、プレビューを表示する |
+| `src/screens/settings_screen.py` | Settings 画面。ダッシュボード表示設定、自動更新設定、リセットを表示する |
 
 ### ui_parts
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/ui_parts/` | 画面で再利用する UI 部品を置く |
-| `aidlc_dashboard/ui_parts/sidebar_navigation.py` | 左側サイドバーのナビゲーション部品を描画する |
-| `aidlc_dashboard/ui_parts/page_title_header.py` | 画面タイトル、説明文、最終更新日時、更新ボタンを描画する |
-| `aidlc_dashboard/ui_parts/summary_metric_cards.py` | Dashboard 上部の AIDLC バージョン、全体ステータス、Scope/Profile、Stage 進捗カードを描画する |
-| `aidlc_dashboard/ui_parts/phase_progress_flow.py` | Dashboard の Phase 横並び進捗フローを描画する |
-| `aidlc_dashboard/ui_parts/current_next_stage_panel.py` | Dashboard の現在 Stage / 次 Stage パネルを描画する |
-| `aidlc_dashboard/ui_parts/stage_status_badge.py` | 完了、進行中、未着手、Skip、承認待ちのステータスバッジを描画する |
-| `aidlc_dashboard/ui_parts/workflow_status_filter_buttons.py` | Workflow 画面上部のステータス絞り込みボタンを描画する |
-| `aidlc_dashboard/ui_parts/phase_stage_accordion.py` | Workflow 画面の Phase 単位アコーディオンと Stage 一覧を描画する |
-| `aidlc_dashboard/ui_parts/artifact_filter_bar.py` | Artifacts 画面の Phase、Stage、File Type、Status、検索欄を描画する |
-| `aidlc_dashboard/ui_parts/artifact_list_table.py` | Artifacts 画面の成果物一覧テーブルを描画する |
-| `aidlc_dashboard/ui_parts/artifact_detail_panel.py` | Artifacts 画面右側の成果物詳細・プレビュー・ダウンロード領域を描画する |
-| `aidlc_dashboard/ui_parts/settings_option_panel.py` | Settings 画面の設定セクション、トグル、セレクトボックスを描画する |
+| `src/ui_parts/` | 画面で再利用する UI 部品を置く |
+| `src/ui_parts/sidebar_navigation.py` | 左側サイドバーのナビゲーション部品を描画する |
+| `src/ui_parts/page_title_header.py` | 画面タイトル、説明文、最終更新日時、更新ボタンを描画する |
+| `src/ui_parts/summary_metric_cards.py` | Dashboard 上部の AIDLC バージョン、全体ステータス、Scope/Profile、Stage 進捗カードを描画する |
+| `src/ui_parts/phase_progress_flow.py` | Dashboard の Phase 横並び進捗フローを描画する |
+| `src/ui_parts/current_next_stage_panel.py` | Dashboard の現在 Stage / 次 Stage パネルを描画する |
+| `src/ui_parts/stage_status_badge.py` | 完了、進行中、未着手、Skip、承認待ちのステータスバッジを描画する |
+| `src/ui_parts/workflow_status_filter_buttons.py` | Workflow 画面上部のステータス絞り込みボタンを描画する |
+| `src/ui_parts/phase_stage_accordion.py` | Workflow 画面の Phase 単位アコーディオンと Stage 一覧を描画する |
+| `src/ui_parts/artifact_filter_bar.py` | Artifacts 画面の Phase、Stage、File Type、Status、検索欄を描画する |
+| `src/ui_parts/artifact_list_table.py` | Artifacts 画面の成果物一覧テーブルを描画する |
+| `src/ui_parts/artifact_detail_panel.py` | Artifacts 画面右側の成果物詳細・プレビュー・ダウンロード領域を描画する |
+| `src/ui_parts/settings_option_panel.py` | Settings 画面の設定セクション、トグル、セレクトボックスを描画する |
 
 ### data_models
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/data_models/` | アプリ内で使うデータ構造を定義する |
-| `aidlc_dashboard/data_models/workflow_summary_model.py` | Workflow 全体の状態、AIDLC バージョン、Scope/Profile、完了数などを表す |
-| `aidlc_dashboard/data_models/phase_model.py` | Phase 番号、Phase 名、説明、進捗、ステータスを表す |
-| `aidlc_dashboard/data_models/stage_model.py` | Stage 番号、Stage 名、ステータス、Skip 理由、成果物、更新日時、メモを表す |
-| `aidlc_dashboard/data_models/artifact_model.py` | 成果物名、ファイルパス、ファイル種別、生成元 Phase / Stage、更新日時を表す |
-| `aidlc_dashboard/data_models/audit_log_model.py` | `audit/` 配下から取得する最近の更新履歴を表す |
-| `aidlc_dashboard/data_models/dashboard_settings_model.py` | 自動更新、更新間隔、表示件数、テーマなどの表示設定を表す |
+| `src/data_models/` | アプリ内で使うデータ構造を定義する |
+| `src/data_models/workflow_summary_model.py` | Workflow 全体の状態、AIDLC バージョン、Scope/Profile、完了数などを表す |
+| `src/data_models/phase_model.py` | Phase 番号、Phase 名、説明、進捗、ステータスを表す |
+| `src/data_models/stage_model.py` | Stage 番号、Stage 名、ステータス、Skip 理由、成果物、更新日時、メモを表す |
+| `src/data_models/artifact_model.py` | 成果物名、ファイルパス、ファイル種別、生成元 Phase / Stage、更新日時を表す |
+| `src/data_models/audit_log_model.py` | `audit/` 配下から取得する最近の更新履歴を表す |
+| `src/data_models/dashboard_settings_model.py` | 自動更新、更新間隔、表示件数、テーマなどの表示設定を表す |
 
 ### file_readers
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/file_readers/` | AIDLC 関連ファイルを探して読み込む処理を置く |
-| `aidlc_dashboard/file_readers/config_yml_reader.py` | `config.yml` を読み込む |
-| `aidlc_dashboard/file_readers/aidlc_intent_path_finder.py` | `aidlc/spaces/default/intents/<intent>/` の場所を特定する |
-| `aidlc_dashboard/file_readers/aidlc_state_file_reader.py` | `aidlc-state.md` を読み込む |
-| `aidlc_dashboard/file_readers/aidlc_phase_files_reader.py` | `ideation/`、`inception/` など各 Phase 配下のファイルを一覧取得・読み込みする |
-| `aidlc_dashboard/file_readers/aidlc_audit_files_reader.py` | `audit/` 配下の更新履歴ファイルを一覧取得・読み込みする |
-| `aidlc_dashboard/file_readers/aidlc_artifact_files_reader.py` | 成果物として表示するファイルを一覧取得・読み込みする |
-| `aidlc_dashboard/file_readers/aidlc_version_file_reader.py` | `core/tools/aidlc-version.ts` を読み込む |
+| `src/file_readers/` | AIDLC 関連ファイルを探して読み込む処理を置く |
+| `src/file_readers/config_yml_reader.py` | `config.yml` を読み込む |
+| `src/file_readers/aidlc_intent_path_finder.py` | `aidlc/spaces/default/intents/<intent>/` の場所を特定する |
+| `src/file_readers/aidlc_state_file_reader.py` | `aidlc-state.md` を読み込む |
+| `src/file_readers/aidlc_phase_files_reader.py` | `ideation/`、`inception/` など各 Phase 配下のファイルを一覧取得・読み込みする |
+| `src/file_readers/aidlc_audit_files_reader.py` | `audit/` 配下の更新履歴ファイルを一覧取得・読み込みする |
+| `src/file_readers/aidlc_artifact_files_reader.py` | 成果物として表示するファイルを一覧取得・読み込みする |
+| `src/file_readers/aidlc_version_file_reader.py` | `core/tools/aidlc-version.ts` を読み込む |
 
 ### aidlc_data_extractors
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/aidlc_data_extractors/` | 読み込んだファイル内容から AIDLC の表示対象データを抜き出す |
-| `aidlc_dashboard/aidlc_data_extractors/aidlc_state_markdown_extractor.py` | `aidlc-state.md` から現在 Phase、現在 Stage、Scope/Profile などを抜き出す |
-| `aidlc_dashboard/aidlc_data_extractors/aidlc_phase_stage_extractor.py` | 各 Phase 配下から Stage 情報、Skip 理由、承認待ち情報などを抜き出す |
-| `aidlc_dashboard/aidlc_data_extractors/aidlc_audit_log_extractor.py` | `audit/` 配下ファイルから最近の更新履歴を抜き出す |
-| `aidlc_dashboard/aidlc_data_extractors/aidlc_artifact_metadata_extractor.py` | 成果物ファイルからファイル種別、更新日時、表示名などのメタ情報を抜き出す |
-| `aidlc_dashboard/aidlc_data_extractors/aidlc_release_version_extractor.py` | `core/tools/aidlc-version.ts` から `v2.9.1` のような AIDLC リリースバージョンを抜き出す |
+| `src/aidlc_data_extractors/` | 読み込んだファイル内容から AIDLC の表示対象データを抜き出す |
+| `src/aidlc_data_extractors/aidlc_state_markdown_extractor.py` | `aidlc-state.md` から現在 Phase、現在 Stage、Scope/Profile などを抜き出す |
+| `src/aidlc_data_extractors/aidlc_phase_stage_extractor.py` | 各 Phase 配下から Stage 情報、Skip 理由、承認待ち情報などを抜き出す |
+| `src/aidlc_data_extractors/aidlc_audit_log_extractor.py` | `audit/` 配下ファイルから最近の更新履歴を抜き出す |
+| `src/aidlc_data_extractors/aidlc_artifact_metadata_extractor.py` | 成果物ファイルからファイル種別、更新日時、表示名などのメタ情報を抜き出す |
+| `src/aidlc_data_extractors/aidlc_release_version_extractor.py` | `core/tools/aidlc-version.ts` から `v2.9.1` のような AIDLC リリースバージョンを抜き出す |
 
 ### display_data_builders
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/display_data_builders/` | 画面表示用にデータを集計・整形する |
-| `aidlc_dashboard/display_data_builders/dashboard_display_data_builder.py` | Dashboard 画面用に、サマリー、現在 Stage、次 Stage、最近の更新を作る |
-| `aidlc_dashboard/display_data_builders/workflow_display_data_builder.py` | Workflow 画面用に、Phase 一覧、Stage 一覧、ステータス別件数を作る |
-| `aidlc_dashboard/display_data_builders/artifacts_display_data_builder.py` | Artifacts 画面用に、成果物一覧、フィルタ候補、選択中成果物詳細を作る |
-| `aidlc_dashboard/display_data_builders/settings_display_data_builder.py` | Settings 画面用に、現在の設定値と選択肢を作る |
+| `src/display_data_builders/` | 画面表示用にデータを集計・整形する |
+| `src/display_data_builders/dashboard_display_data_builder.py` | Dashboard 画面用に、サマリー、現在 Stage、次 Stage、最近の更新を作る |
+| `src/display_data_builders/workflow_display_data_builder.py` | Workflow 画面用に、Phase 一覧、Stage 一覧、ステータス別件数を作る |
+| `src/display_data_builders/artifacts_display_data_builder.py` | Artifacts 画面用に、成果物一覧、フィルタ候補、選択中成果物詳細を作る |
+| `src/display_data_builders/settings_display_data_builder.py` | Settings 画面用に、現在の設定値と選択肢を作る |
 
 ### artifact_previewers
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/artifact_previewers/` | 成果物ファイルのプレビュー表示用データを作る |
-| `aidlc_dashboard/artifact_previewers/markdown_artifact_previewer.py` | `.md` ファイルを Markdown プレビュー用に変換する |
-| `aidlc_dashboard/artifact_previewers/csv_artifact_previewer.py` | `.csv` ファイルを表形式プレビュー用に変換する |
-| `aidlc_dashboard/artifact_previewers/text_artifact_previewer.py` | `.txt` ファイルをテキストプレビュー用に変換する |
-| `aidlc_dashboard/artifact_previewers/json_artifact_previewer.py` | `.json` ファイルを整形済み JSON プレビュー用に変換する |
-| `aidlc_dashboard/artifact_previewers/yaml_artifact_previewer.py` | `.yaml` / `.yml` ファイルを YAML プレビュー用に変換する |
-| `aidlc_dashboard/artifact_previewers/image_artifact_previewer.py` | `.png` / `.jpg` / `.jpeg` ファイルを画像プレビュー用に変換する |
+| `src/artifact_previewers/` | 成果物ファイルのプレビュー表示用データを作る |
+| `src/artifact_previewers/markdown_artifact_previewer.py` | `.md` ファイルを Markdown プレビュー用に変換する |
+| `src/artifact_previewers/csv_artifact_previewer.py` | `.csv` ファイルを表形式プレビュー用に変換する |
+| `src/artifact_previewers/text_artifact_previewer.py` | `.txt` ファイルをテキストプレビュー用に変換する |
+| `src/artifact_previewers/json_artifact_previewer.py` | `.json` ファイルを整形済み JSON プレビュー用に変換する |
+| `src/artifact_previewers/yaml_artifact_previewer.py` | `.yaml` / `.yml` ファイルを YAML プレビュー用に変換する |
+| `src/artifact_previewers/image_artifact_previewer.py` | `.png` / `.jpg` / `.jpeg` ファイルを画像プレビュー用に変換する |
 
 ### dashboard_config
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/dashboard_config/` | `config.yml` の読み込み、保存、初期値管理を行う |
-| `aidlc_dashboard/dashboard_config/dashboard_config_loader.py` | `config.yml` を読み込み、アプリ用設定として扱う |
-| `aidlc_dashboard/dashboard_config/dashboard_config_saver.py` | Settings 画面から変更された値を `config.yml` に保存する |
-| `aidlc_dashboard/dashboard_config/default_dashboard_config.py` | `config.yml` がない場合やリセット時の初期値を定義する |
+| `src/dashboard_config/` | `config.yml` の読み込み、保存、初期値管理を行う |
+| `src/dashboard_config/dashboard_config_loader.py` | `config.yml` を読み込み、アプリ用設定として扱う |
+| `src/dashboard_config/dashboard_config_saver.py` | Settings 画面から変更された値を `config.yml` に保存する |
+| `src/dashboard_config/default_dashboard_config.py` | `config.yml` がない場合やリセット時の初期値を定義する |
 
 ### styles
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/styles/` | CSS やテーマ適用処理を置く |
-| `aidlc_dashboard/styles/custom_streamlit_style.css` | 添付画像のようなカード、サイドバー、バッジ、テーブル見た目を調整する CSS |
-| `aidlc_dashboard/styles/streamlit_style_loader.py` | CSS ファイルを Streamlit に読み込ませる |
+| `src/styles/` | CSS やテーマ適用処理を置く |
+| `src/styles/custom_streamlit_style.css` | 添付画像のようなカード、サイドバー、バッジ、テーブル見た目を調整する CSS |
+| `src/styles/streamlit_style_loader.py` | CSS ファイルを Streamlit に読み込ませる |
 
 ### common_helpers
 
 | ディレクトリ / ファイル名 | どんな処理をする想定か |
 |---|---|
-| `aidlc_dashboard/common_helpers/` | 複数箇所で使う小さな共通処理を置く |
-| `aidlc_dashboard/common_helpers/datetime_display_formatter.py` | 日時を `YYYY/MM/DD HH:mm` などの表示形式に変換する |
-| `aidlc_dashboard/common_helpers/artifact_file_type_detector.py` | 拡張子からドキュメント、図表、表、コード、その他を判定する |
-| `aidlc_dashboard/common_helpers/stage_status_normalizer.py` | AIDLC 側の状態表記を、完了・進行中・未着手・Skip・承認待ちに正規化する |
-| `aidlc_dashboard/common_helpers/markdown_heading_extractor.py` | Markdown から見出しや概要を抽出する |
-| `aidlc_dashboard/common_helpers/safe_file_path_formatter.py` | 画面表示用にファイルパスを安全に整形する |
+| `src/common_helpers/` | 複数箇所で使う小さな共通処理を置く |
+| `src/common_helpers/datetime_display_formatter.py` | 日時を `YYYY/MM/DD HH:mm` などの表示形式に変換する |
+| `src/common_helpers/artifact_file_type_detector.py` | 拡張子からドキュメント、図表、表、コード、その他を判定する |
+| `src/common_helpers/stage_status_normalizer.py` | AIDLC 側の状態表記を、完了・進行中・未着手・Skip・承認待ちに正規化する |
+| `src/common_helpers/markdown_heading_extractor.py` | Markdown から見出しや概要を抽出する |
+| `src/common_helpers/safe_file_path_formatter.py` | 画面表示用にファイルパスを安全に整形する |
 
 ### sample_data
 
@@ -306,4 +338,3 @@ screens/ + ui_parts/
 6. `display_data_builders/` で画面表示用データを作る
 7. `screens/` と `ui_parts/` で Streamlit UI を実装する
 8. 添付画像に近づくように `styles/` で見た目を調整する
-

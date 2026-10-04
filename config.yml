@@ -1,0 +1,50 @@
+# AIDLC Workflow Dashboard 設定ファイル
+#
+# 人間が直接編集する設定ファイルは、この config.yml のみとします。
+# パスはこの config.yml が置かれているディレクトリからの相対パス、または絶対パスで指定してください。
+
+data_sources:
+  # Dashboard画面で読み込む対象ディレクトリ
+  # aidlc-state.md や各Phase配下の情報を参照する想定
+  dashboard_data_directory: "aidlc/spaces/default/intents/<intent>"
+
+  # Dashboard画面下部の「最近の更新」で読み込む audit ディレクトリ
+  audit_log_directory: "aidlc/spaces/default/intents/<intent>/audit"
+
+  # Workflow画面で読み込む対象ディレクトリ
+  # ideation、inception、construction、operation、verification などのPhaseディレクトリを含む場所を指定
+  workflow_data_directory: "aidlc/spaces/default/intents/<intent>"
+
+  # Artifacts画面で成果物一覧として読み込む対象ディレクトリ
+  # 各Phase配下に生成された .md、.csv、.json、画像などを探索する想定
+  artifacts_data_directory: "aidlc/spaces/default/intents/<intent>"
+
+  # AIDLCリリースバージョンを取得するファイルです。
+  # 例: v2.9.1 のような表示に使用します。
+  aidlc_release_version_file: "core/tools/aidlc-version.ts"
+
+display:
+  # 画面テーマで、初期値は light。
+  theme: "light"
+
+  # 画面上に表示する日時形式。
+  datetime_format: "YYYY/MM/DD HH:mm"
+
+  # Artifacts画面の1ページあたりの表示件数。
+  artifacts_items_per_page: 20
+
+  # SkipされたStageをWorkflow画面に表示するかどうかの設定。
+  show_skipped_stages: true
+
+  # 完了済みPhaseをWorkflow画面で初期表示時に閉じるかどうかの設定。
+  collapse_completed_phases_by_default: true
+
+  # 現在進行中のPhaseをDashboard / Workflow画面で自動展開するかどうかの設定。
+  auto_expand_current_phase: true
+
+refresh:
+  # 自動更新を有効にするかどうかの設定。
+  auto_refresh_enabled: true
+
+  # 自動更新間隔で、単位は秒。
+  refresh_interval_seconds: 10
