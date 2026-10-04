@@ -1,0 +1,16 @@
+{
+  "name": "practice_mermaid_architecture_beta",
+  "build": {
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "workspaceMount": "source=${localWorkspaceFolder},target=/work_dir,type=bind,consistency=cached",
+  "workspaceFolder": "/work_dir",
+  "forwardPorts": [8510],
+  "postCreateCommand": "pip install -r requirements.txt",
+  "customizations": {
+    "vscode": {
+      "extensions": ["ms-python.python"]
+    }
+  }
+}
